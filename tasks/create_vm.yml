@@ -1,0 +1,19 @@
+---
+- name: Set vm_vars fact
+  ansible.builtin.set_fact:
+    vm_vars: "{{ hostvars[_node_name] }}"
+
+- name: Create Vagrant home dir
+  ansible.windows.win_file:
+    path: "{{ vm_vars['vbox']['vm_folder'] }}/{{ vm_vars['vbox']['vm_group'] }}/{{ _node_name }}_vg"
+    state: directory
+
+- name: Write template for vbox to server
+  ansible.windows.win_template:
+    src: vagrant_file.j2
+    dest: "{{ vm_vars['vbox']['vm_folder'] }}/{{ vm_vars['vbox']['vm_group'] }}/{{ _node_name }}_vg/Vagrantfile"
+
+- name: Start VM from vagrant file
+  ansible.windows.win_shell: vagrant up
+  args:
+    chdir: "{{ vm_vars['vbox']['vm_folder'] }}/{{ vm_vars['vbox']['vm_group'] }}/{{ _node_name }}_vg"

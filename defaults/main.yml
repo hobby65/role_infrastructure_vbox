@@ -1,0 +1,13 @@
+---
+default_netname: natnetwork
+
+catalog:
+  s:
+    cpus: 2
+    memory: 1024
+  m:
+    cpus: 2
+    memory: 4096
+  l:
+    cpus: 4
+    memory: 8192

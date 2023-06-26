@@ -1,0 +1,26 @@
+---
+
+- name: Set nodename as vars for the vm creation
+  ansible.builtin.set_fact:
+    _node_name: "{{ inventory_hostname }}"
+
+- name: Loop to create vm's
+  ansible.builtin.include_tasks: create_vm.yml
+  args:
+    apply:
+      delegate_to: "{{ hostvars[_node_name]['vbox']['server'] }}"
+
+- name: Make sure the new machine is in /etc/hosts on localhost
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: "^{{ hostvars[_node_name].primary_interface.ip }} "
+    line: "{{ '%-20s %-40s %-20s' | format(hostvars[_node_name].primary_interface.ip, _node_name, _node_name.split('.')[0]) }}"
+    state: present
+    mode: '0644'
+  delegate_to: "{{ _loop_host }}"
+  loop:
+    - aapserver.localdomain
+    - localhost
+  loop_control:
+    loop_var: _loop_host

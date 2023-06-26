@@ -1,0 +1,56 @@
+def nat(config)
+  config.vm.provider :virtualbox do |vb|
+    vb.customize ["modifyvm", :id, "--nic2", "{{ default_netname }}", "--{{ default_netname }}2", "{{ vm_vars['vbox']['networks'][vm_vars['primary_interface']['network']]['net_name'] }}"]
+    {% if vm_vars['additional_interfaces'] is defined %} 
+    vb.customize ["modifyvm", :id, "--nic3", "{{ default_netname }}", "--{{ default_netname }}3", "{{ vm_vars['vbox']['networks'][vm_vars['additional_interfaces'][0]['network']]['net_name'] }}"]
+    {% endif %}
+  end
+end
+
+def host(config)
+  config.vm.provider :virtualbox do |vb|
+    vb.name = "{{ vm_vars['hostname'] }}"
+    vb.gui = false
+    vb.memory = "{{ catalog[vm_vars['size']]['memory'] }}"
+    vb.cpus = "{{ catalog[vm_vars['size']]['cpus'] }}"
+    vb.customize ["modifyvm", :id, "--groups", "/{{ vm_vars['vbox']['vm_group'] }}"]
+  end
+end
+
+{% if vm_vars['disks'] is defined %}
+def disk(config)
+  config.vm.provider :virtualbox do |vb|
+    vm_name = "{{ vm_vars['hostname'] }}"
+    controller_name = "VirtIO"
+    file_name = "{{ vm_vars['disks'][0]['vg'] }}.vmdk"
+    if(!File.exists?(file_name))
+    vb.customize [ "storagectl", vm_name, "--name", controller_name, "--add", "virtio-scsi" ]
+    end
+    {% for disk in vm_vars['disks'] %}
+    disk_name = "{{ disk['vg'] }}.vmdk"
+    if(!File.exists?(disk_name))
+      vb.customize [ "createmedium", "disk", "--filename", disk_name, "--format", "VMDK", "--size", {{ (disk['size']) * 1025 }} ]
+      vb.customize [ "storageattach", vm_name, "--storagectl", controller_name, "--port", "{{ loop.index }}", "--device", "0", "--type", "hdd", "--medium", disk_name ]
+    end    
+    {% endfor %}
+  end
+end
+{% endif %}
+
+
+
+Vagrant.configure("2") do |config|
+  config.vm.define "test" do |test|
+    nat(config)
+    host(config)
+    {% if vm_vars['disks'] is defined %}
+    disk(config)
+    {% endif %}
+    test.vm.box = "{{ vm_vars['vbox']['template_box'] }}"
+    test.vm.hostname = "{{ vm_vars['hostname'] }}"
+    test.vm.network "private_network", virtualbox_inet: "{{ vm_vars['vbox']['networks'][vm_vars['primary_interface']['network']]['net_name'] }}", ip: "{{ vm_vars['primary_interface']['ip'] }}"
+    {% if vm_vars['additional_interfaces'] is defined %} 
+    test.vm.network "private_network", virtualbox_inet: "{{ vm_vars['vbox']['networks'][vm_vars['additional_interfaces'][0]['network']]['net_name'] }}", ip: "{{ vm_vars['additional_interfaces'][0]['ip'] }}"
+    {% endif %}
+  end
+end
